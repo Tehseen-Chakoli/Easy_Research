@@ -1,14 +1,29 @@
+# Application
 streamlit
 python-dotenv
-requests
-beautifulsoup4
-trafilatura
+
+# Retrieval and vector search
 langchain-core
 langchain-text-splitters
 langchain-community
 langchain-huggingface
 faiss-cpu
 sentence-transformers
+transformers
+
+# Model provider
 groq
+
+# Search and web ingestion
+requests
+beautifulsoup4
+trafilatura
+playwright
 youtube-transcript-api
+
+# PDF extraction and OCR
 PyMuPDF
+easyocr
+numpy
+Pillow
+

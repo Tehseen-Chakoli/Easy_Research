@@ -16,6 +16,8 @@ The project now has:
 - a base `src/` package
 - environment-backed configuration
 - a starter research setup interface
+- working Serper search integration
+- displayed organic search results in the UI
 - a clean local development baseline
 
 ## Project Direction
@@ -47,14 +49,21 @@ GROQ_MODEL=llama-3.1-8b-instant
 
 At this stage:
 
-- `SERPER_API_KEY` is used to prepare the search integration path
+- `SERPER_API_KEY` powers the current research search flow
 - `GROQ_MODEL` is reserved for the answer-generation layer that will be added later
 
 ## Current Focus
 
-The current codebase is establishing the base project structure before adding:
+The current codebase has started source discovery and is now ready to expand into:
 
-- search ingestion
 - web extraction
 - retrieval and vector storage
 - grounded answer generation
+
+## Implemented So Far
+
+The application can now:
+
+- accept a research topic in the Streamlit UI
+- call the Serper API using environment-based configuration
+- display normalized organic search results for the current query

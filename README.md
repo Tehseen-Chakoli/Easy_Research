@@ -18,6 +18,8 @@ The project now has:
 - a starter research setup interface
 - working Serper search integration
 - displayed organic search results in the UI
+- readable web content extraction
+- extracted page preview inside the UI
 - a clean local development baseline
 
 ## Project Direction
@@ -56,7 +58,6 @@ At this stage:
 
 The current codebase has started source discovery and is now ready to expand into:
 
-- web extraction
 - retrieval and vector storage
 - grounded answer generation
 
@@ -67,3 +68,12 @@ The application can now:
 - accept a research topic in the Streamlit UI
 - call the Serper API using environment-based configuration
 - display normalized organic search results for the current query
+- extract readable page content from a selected result
+- preview normalized extracted content before document processing
+
+## Extraction Pipeline
+
+The current web ingestion path works in two stages:
+
+1. try `trafilatura` for readable article-style extraction
+2. fall back to `requests` + `BeautifulSoup` for HTML text parsing

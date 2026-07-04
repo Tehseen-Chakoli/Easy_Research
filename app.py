@@ -2,8 +2,18 @@
 
 import streamlit as st
 
-from src.config import APP_TITLE, DEFAULT_NUM_RESULTS, EMBEDDING_MODEL_NAME, SERPER_API_KEY
+from src.answer_generator import generate_answer_from_chunks
+from src.config import (
+    APP_TITLE,
+    DEFAULT_NUM_RESULTS,
+    DEFAULT_RETRIEVAL_K,
+    EMBEDDING_MODEL_NAME,
+    GROQ_API_KEY,
+    GROQ_MODEL,
+    SERPER_API_KEY,
+)
 from src.document_processor import process_extracted_content
+from src.retriever import retrieve_relevant_chunks
 from src.serper_search import search_serper
 from src.vector_store import create_vector_store
 from src.web_extractor import extract_content
@@ -26,6 +36,10 @@ if "vector_store_ready" not in st.session_state:
     st.session_state["vector_store_ready"] = False
 if "vector_store" not in st.session_state:
     st.session_state["vector_store"] = None
+if "retrieved_chunks" not in st.session_state:
+    st.session_state["retrieved_chunks"] = []
+if "generated_answer" not in st.session_state:
+    st.session_state["generated_answer"] = ""
 
 st.title(APP_TITLE)
 st.caption("Research workspace builder for learning and experimenting with RAG.")
@@ -105,6 +119,8 @@ if search_results:
                         st.session_state["chunked_documents"] = []
                         st.session_state["vector_store_ready"] = False
                         st.session_state["vector_store"] = None
+                        st.session_state["retrieved_chunks"] = []
+                        st.session_state["generated_answer"] = ""
                     except Exception as exc:
                         st.session_state["extracted_item"] = {
                             "title": item.get("title", ""),
@@ -132,6 +148,8 @@ if extracted_item:
             st.session_state["chunked_documents"] = chunked_documents
             st.session_state["vector_store_ready"] = False
             st.session_state["vector_store"] = None
+            st.session_state["retrieved_chunks"] = []
+            st.session_state["generated_answer"] = ""
     else:
         error_text = extracted_item.get("error") or "No readable content could be extracted."
         st.error(error_text)
@@ -157,6 +175,8 @@ if chunked_documents:
         with st.spinner("Building vector store from chunked documents..."):
             st.session_state["vector_store"] = create_vector_store(chunked_documents)
             st.session_state["vector_store_ready"] = True
+            st.session_state["retrieved_chunks"] = []
+            st.session_state["generated_answer"] = ""
 
 vector_store_ready = st.session_state.get("vector_store_ready", False)
 if vector_store_ready:
@@ -164,4 +184,63 @@ if vector_store_ready:
     st.success("Vector store created successfully.")
     st.caption(f"Embedding model: {EMBEDDING_MODEL_NAME}")
 
-st.info("Next step: store chunked research documents for retrieval and question answering.")
+    with st.container(border=True):
+        st.subheader("Ask from Research Store")
+        question = st.text_input(
+            "Question",
+            placeholder="Example: What are the main ideas in this source?",
+        )
+        retrieval_k = st.number_input(
+            "Chunks to retrieve",
+            min_value=1,
+            max_value=10,
+            value=DEFAULT_RETRIEVAL_K,
+            step=1,
+        )
+        retrieve_clicked = st.button("Retrieve Relevant Chunks", use_container_width=True)
+
+        if GROQ_API_KEY:
+            st.caption(f"Groq answer model ready: {GROQ_MODEL}")
+        else:
+            st.caption("Add GROQ_API_KEY to enable grounded answer generation.")
+
+        if retrieve_clicked:
+            try:
+                st.session_state["retrieved_chunks"] = retrieve_relevant_chunks(
+                    vector_store=st.session_state["vector_store"],
+                    question=question,
+                    k=int(retrieval_k),
+                )
+                st.session_state["generated_answer"] = ""
+            except Exception as exc:
+                st.error(f"Retrieval failed: {exc}")
+
+retrieved_chunks = st.session_state.get("retrieved_chunks", [])
+if retrieved_chunks:
+    st.subheader("Retrieved Chunks")
+    for index, item in enumerate(retrieved_chunks, start=1):
+        with st.container(border=True):
+            st.markdown(f"**Chunk {index}**")
+            st.caption(item.get("title") or "Untitled source")
+            st.text_area(
+                f"Chunk preview {index}",
+                item["content"][:1800],
+                height=180,
+                key=f"retrieved_chunk_{index}",
+            )
+
+    if st.button("Generate Grounded Answer", use_container_width=True):
+        try:
+            st.session_state["generated_answer"] = generate_answer_from_chunks(
+                question=question,
+                retrieved_chunks=retrieved_chunks,
+            )
+        except Exception as exc:
+            st.error(f"Answer generation failed: {exc}")
+
+generated_answer = st.session_state.get("generated_answer", "")
+if generated_answer:
+    st.subheader("Generated Answer")
+    st.markdown(generated_answer)
+
+st.info("Next step: persist workspaces, chat history, and user-specific usage across sessions.")

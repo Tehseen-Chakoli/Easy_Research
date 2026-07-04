@@ -24,6 +24,8 @@ The project now has:
 - chunk preview for extracted research content
 - embedding model configuration
 - in-memory FAISS vector store creation
+- similarity-based chunk retrieval
+- first grounded answer-generation flow with Groq
 - a clean local development baseline
 
 ## Project Direction
@@ -56,14 +58,16 @@ GROQ_MODEL=llama-3.1-8b-instant
 At this stage:
 
 - `SERPER_API_KEY` powers the current research search flow
-- `GROQ_MODEL` is reserved for the answer-generation layer that will be added later
+- `GROQ_API_KEY` enables grounded answer generation
+- `GROQ_MODEL` configures the active answer model
 
 ## Current Focus
 
-The current codebase has started source discovery and is now ready to expand into:
+The current codebase now supports the first complete RAG loop and is ready to expand into:
 
-- retrieval and question answering
-- grounded answer generation
+- persistent workspace storage
+- chat history
+- richer multi-source ingestion
 
 ## Implemented So Far
 
@@ -78,6 +82,8 @@ The application can now:
 - split extracted content into retrieval-ready chunks
 - create embeddings for processed chunks
 - build an initial FAISS vector store from those chunks
+- retrieve the most relevant chunks for a question
+- generate a grounded answer from retrieved context using Groq
 
 ## RAG Processing Step
 
@@ -96,6 +102,16 @@ The application now includes the first vector indexing layer:
 1. use a Hugging Face embedding model
 2. normalize embeddings for retrieval-oriented similarity search
 3. build a FAISS index from the processed research chunks
+
+## Retrieval and Answering
+
+The current question-answering flow now works like this:
+
+1. create a vector store from the processed chunk set
+2. retrieve the top matching chunks for the current question
+3. build a grounded prompt from those retrieved chunks
+4. send the prompt to Groq for answer generation
+5. render the final answer in the Streamlit UI
 
 ## Extraction Pipeline
 

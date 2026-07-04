@@ -20,6 +20,8 @@ The project now has:
 - displayed organic search results in the UI
 - readable web content extraction
 - extracted page preview inside the UI
+- document creation and chunking
+- chunk preview for extracted research content
 - a clean local development baseline
 
 ## Project Direction
@@ -70,6 +72,17 @@ The application can now:
 - display normalized organic search results for the current query
 - extract readable page content from a selected result
 - preview normalized extracted content before document processing
+- convert extracted content into LangChain documents
+- split extracted content into retrieval-ready chunks
+
+## RAG Processing Step
+
+After extraction, the current pipeline now:
+
+1. creates a LangChain `Document`
+2. preserves source metadata on that document
+3. splits the content into overlapping chunks
+4. previews the first chunk in the UI
 
 ## Extraction Pipeline
 

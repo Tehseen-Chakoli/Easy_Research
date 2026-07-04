@@ -3,6 +3,7 @@
 import streamlit as st
 
 from src.config import APP_TITLE, DEFAULT_NUM_RESULTS, SERPER_API_KEY
+from src.document_processor import process_extracted_content
 from src.serper_search import search_serper
 from src.web_extractor import extract_content
 
@@ -13,11 +14,13 @@ st.set_page_config(
     layout="wide",
 )
 
+# Seed the minimal session state needed for the early ingestion flow.
 if "search_results" not in st.session_state:
     st.session_state["search_results"] = []
-
 if "extracted_item" not in st.session_state:
     st.session_state["extracted_item"] = None
+if "chunked_documents" not in st.session_state:
+    st.session_state["chunked_documents"] = []
 
 st.title(APP_TITLE)
 st.caption("Research workspace builder for learning and experimenting with RAG.")
@@ -94,6 +97,7 @@ if search_results:
                             title=item.get("title", ""),
                             snippet=item.get("snippet", ""),
                         )
+                        st.session_state["chunked_documents"] = []
                     except Exception as exc:
                         st.session_state["extracted_item"] = {
                             "title": item.get("title", ""),
@@ -114,8 +118,29 @@ if extracted_item:
             extracted_item["content"][:4000],
             height=320,
         )
+
+        # Chunking is the first RAG-specific processing step after extraction.
+        if st.button("Create Document Chunks", use_container_width=True):
+            chunked_documents = process_extracted_content(extracted_item)
+            st.session_state["chunked_documents"] = chunked_documents
     else:
         error_text = extracted_item.get("error") or "No readable content could be extracted."
         st.error(error_text)
 
-st.info("Next step: turn extracted content into chunked research documents for retrieval.")
+chunked_documents = st.session_state.get("chunked_documents", [])
+if chunked_documents:
+    st.subheader("Chunk Preview")
+    st.success(f"Created {len(chunked_documents)} chunks from the extracted content.")
+
+    first_chunk = chunked_documents[0]
+    st.caption(
+        f"Chunk metadata: title={first_chunk.metadata.get('title', '')} | "
+        f"method={first_chunk.metadata.get('extraction_method', '')}"
+    )
+    st.text_area(
+        "First chunk",
+        first_chunk.page_content[:2500],
+        height=260,
+    )
+
+st.info("Next step: store chunked research documents for retrieval and question answering.")

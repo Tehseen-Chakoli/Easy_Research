@@ -1,27 +1,33 @@
-"""Document creation and chunking helpers for extracted research content."""
-
-from __future__ import annotations
+"""Document normalization and chunking helpers for ingested source content."""
 
 from langchain_core.documents import Document
 from langchain_text_splitters import RecursiveCharacterTextSplitter
 
-from src.config import DEFAULT_CHUNK_OVERLAP, DEFAULT_CHUNK_SIZE
+
+DEFAULT_CHUNK_SIZE = 1000
+DEFAULT_CHUNK_OVERLAP = 200
 
 
-def create_document(extracted_item: dict) -> Document | None:
-    """Convert extracted content into a LangChain document with source metadata."""
+def create_document(extracted_item: dict):
+    """Convert one extracted source item into a LangChain document."""
     content = extracted_item.get("content")
+
     if not content:
         return None
 
+    metadata = {
+        "title": extracted_item.get("title"),
+        "url": extracted_item.get("url"),
+        "snippet": extracted_item.get("snippet"),
+        "extraction_method": extracted_item.get("extraction_method"),
+        "source_type": extracted_item.get("source_type", "web"),
+        "video_id": extracted_item.get("video_id"),
+        "file_name": extracted_item.get("file_name"),
+    }
+
     return Document(
         page_content=content,
-        metadata={
-            "title": extracted_item.get("title"),
-            "url": extracted_item.get("url"),
-            "snippet": extracted_item.get("snippet"),
-            "extraction_method": extracted_item.get("extraction_method"),
-        },
+        metadata=metadata,
     )
 
 
@@ -29,18 +35,21 @@ def chunk_document(
     document: Document,
     chunk_size: int = DEFAULT_CHUNK_SIZE,
     chunk_overlap: int = DEFAULT_CHUNK_OVERLAP,
-) -> list[Document]:
-    """Split a research document into overlapping chunks for later retrieval."""
+):
+    """Split a document into retrieval-friendly overlapping chunks."""
     text_splitter = RecursiveCharacterTextSplitter(
         chunk_size=chunk_size,
         chunk_overlap=chunk_overlap,
     )
+
     return text_splitter.split_documents([document])
 
 
-def process_extracted_content(extracted_item: dict) -> list[Document]:
+def process_extracted_content(extracted_item: dict):
     """Create and chunk a document, returning an empty list for blank content."""
     document = create_document(extracted_item)
+
     if not document:
         return []
+
     return chunk_document(document)

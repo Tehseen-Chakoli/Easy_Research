@@ -1,48 +1,50 @@
-"""Embedding and vector-store helpers for Easy Research."""
-
-from __future__ import annotations
-
 import os
-
-from langchain_community.vectorstores import FAISS
 from langchain_huggingface import HuggingFaceEmbeddings
+from langchain_community.vectorstores import FAISS
 
-from src.config import EMBEDDING_MODEL_NAME
+
+EMBEDDING_MODEL_NAME = "BAAI/bge-base-en-v1.5"
 
 
-def get_embedding_model() -> HuggingFaceEmbeddings:
-    """Create the embedding model used to index research chunks."""
-    return HuggingFaceEmbeddings(
+def get_embedding_model():
+    embeddings = HuggingFaceEmbeddings(
         model_name=EMBEDDING_MODEL_NAME,
-        model_kwargs={"device": "cpu"},
-        encode_kwargs={"normalize_embeddings": True},
+        model_kwargs={
+            "device": "cpu"
+        },
+        encode_kwargs={
+            "normalize_embeddings": True
+        }
     )
 
+    return embeddings
 
-def create_vector_store(chunks) -> FAISS:
-    """Build an in-memory FAISS vector store from processed chunks."""
+
+def create_and_save_vector_store(chunks, save_path: str):
     if not chunks:
-        raise ValueError("No chunks were provided for vector store creation.")
+        raise ValueError("No chunks found. Cannot create vector store.")
 
     embeddings = get_embedding_model()
-    return FAISS.from_documents(
+
+    vector_store = FAISS.from_documents(
         documents=chunks,
-        embedding=embeddings,
+        embedding=embeddings
     )
 
-
-def create_and_save_vector_store(chunks, save_path: str) -> FAISS:
-    """Build a FAISS store and persist it to the given workspace path."""
-    vector_store = create_vector_store(chunks)
     os.makedirs(save_path, exist_ok=True)
+
     vector_store.save_local(save_path)
+
     return vector_store
 
 
-def load_vector_store(save_path: str) -> FAISS:
-    """Reload a persisted FAISS store from disk for later retrieval."""
-    return FAISS.load_local(
+def load_vector_store(save_path: str):
+    embeddings = get_embedding_model()
+
+    vector_store = FAISS.load_local(
         folder_path=save_path,
-        embeddings=get_embedding_model(),
-        allow_dangerous_deserialization=True,
+        embeddings=embeddings,
+        allow_dangerous_deserialization=True
     )
+
+    return vector_store

@@ -1,44 +1,79 @@
-"""Search integration for Easy Research using the Serper API."""
-
-from __future__ import annotations
-
 import requests
+from urllib.parse import urlparse
 
-from src.config import SERPER_API_KEY, SERPER_SEARCH_URL
+from src.config import (
+    SERPER_API_KEY,
+    DEFAULT_NUM_RESULTS,
+    BLOCKED_DOMAINS
+)
 
 
-def search_serper(query: str, num_results: int = 5) -> list[dict]:
-    """Run a Serper search and return normalized organic results."""
+def is_blocked_url(url: str) -> bool:
+    """
+    Check whether URL belongs to blocked domains.
+    """
+    hostname = (urlparse(url).hostname or "").lower()
+
+    for domain in BLOCKED_DOMAINS:
+        blocked_domain = domain.lower()
+        if hostname == blocked_domain or hostname.endswith(f".{blocked_domain}"):
+            return True
+
+    return False
+
+
+def search_serper(
+    query: str,
+    num_results: int = DEFAULT_NUM_RESULTS
+):
+    """
+    Search using Serper API and return filtered organic results.
+    """
     if not SERPER_API_KEY:
         raise ValueError("SERPER_API_KEY is missing.")
 
-    normalized_query = (query or "").strip()
-    if not normalized_query:
-        raise ValueError("Search query cannot be empty.")
+    url = "https://google.serper.dev/search"
+
+    payload = {
+        "q": query,
+        "num": num_results
+    }
+
+    headers = {
+        "X-API-KEY": SERPER_API_KEY,
+        "Content-Type": "application/json"
+    }
 
     response = requests.post(
-        SERPER_SEARCH_URL,
-        headers={
-            "X-API-KEY": SERPER_API_KEY,
-            "Content-Type": "application/json",
-        },
-        json={
-            "q": normalized_query,
-            "num": int(num_results),
-        },
+        url,
+        headers=headers,
+        json=payload,
         timeout=30,
     )
+
     response.raise_for_status()
 
-    payload = response.json()
-    organic_results = payload.get("organic", [])
+    data = response.json()
 
-    return [
-        {
-            "title": item.get("title", "").strip(),
-            "link": item.get("link", "").strip(),
-            "snippet": item.get("snippet", "").strip(),
-        }
-        for item in organic_results
-        if item.get("link")
-    ]
+    organic_results = data.get("organic", [])
+
+    filtered_results = []
+
+    for item in organic_results:
+
+        result_url = item.get("link", "")
+
+        if not result_url:
+            continue
+
+        if is_blocked_url(result_url):
+            print(f"Skipping blocked domain: {result_url}")
+            continue
+
+        filtered_results.append({
+            "title": item.get("title", ""),
+            "link": result_url,
+            "snippet": item.get("snippet", "")
+        })
+
+    return filtered_results

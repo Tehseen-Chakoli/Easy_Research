@@ -1,187 +1,132 @@
-# Easy Research
+# Easy Answer
 
 <p align="center">
   <img src="https://img.shields.io/badge/Streamlit-UI-FF4B4B?style=for-the-badge&logo=streamlit&logoColor=white" alt="Streamlit" />
-  <img src="https://img.shields.io/badge/Groq-LLM-F55036?style=for-the-badge" alt="Groq" />
+  <img src="https://img.shields.io/badge/Groq-LLM-F55036?style=for-the-badge&logo=groq&logoColor=white" alt="Groq" />
   <img src="https://img.shields.io/badge/LangChain-RAG-1C3C3C?style=for-the-badge" alt="LangChain" />
   <img src="https://img.shields.io/badge/FAISS-Vector%20Store-2563EB?style=for-the-badge" alt="FAISS" />
-  <img src="https://img.shields.io/badge/PyMuPDF-PDF%20Export-7C3AED?style=for-the-badge" alt="PyMuPDF" />
-  <img src="https://img.shields.io/badge/BeautifulSoup-Web%20Parsing-2E8B57?style=for-the-badge" alt="BeautifulSoup" />
+  <img src="https://img.shields.io/badge/Playwright-Web%20Rendering-2EAD33?style=for-the-badge&logo=playwright&logoColor=white" alt="Playwright" />
+  <img src="https://img.shields.io/badge/PyMuPDF+EasyOCR-PDF%20Pipeline-7C3AED?style=for-the-badge" alt="PDF Pipeline" />
 </p>
 
-Easy Research is a local-first RAG learning project built to turn scattered research inputs into a usable workspace. A user can create a personal account, save a Groq API key, build research workspaces from search results, URLs, YouTube transcripts, TXT files, and PDFs, then ask grounded questions against the stored knowledge base and export conversations as themed PDF reports.
+Easy Answer is a Streamlit-based learning project for building a practical Retrieval-Augmented Generation (RAG) workflow. It lets a user create research workspaces from search results, URLs, YouTube transcripts, TXT files, and PDFs, store them locally in FAISS, and ask grounded questions with Groq-generated answers and citations.
 
-## What the App Does
+The app now includes user authentication, per-user workspace isolation, saved Groq API keys, token usage tracking, persistent chat history, and themed PDF export for conversation downloads.
 
-- creates user-scoped research workspaces
-- supports search, web, YouTube, TXT, and PDF ingestion
-- chunks and embeds source content locally
-- stores vector indexes with FAISS
-- retrieves relevant chunks for each question
-- generates grounded answers with Groq
-- tracks token usage per user
-- saves workspace chat history
-- exports selected or full conversations to light or dark themed PDFs
+## UI Preview
 
-## Product Screens
+### 1. Workspace Home
 
-### Build Workspace
+Shows the main workspace builder and the active sidebar controls.
 
-![Build workspace view](docs/images/Home_Page.png)
+![Home Page](docs/images/Home_Page.png)
 
-### Ask Questions
+### 2. Ask Experience
 
-![Ask view](docs/images/Ask.png)
+Shows question answering with grounded response formatting and citations.
 
-### Download Exports
+![Ask](docs/images/Ask.png)
 
-![Download view](docs/images/Download.png)
+### 3. Download Experience
 
-## End-to-End Flow
+Shows the export flow for conversation downloads and PDF theme selection.
+
+![Download](docs/images/Download.png)
+
+## Why This Exists
+
+This project was built as a hands-on way to learn how a multi-source RAG application fits together end to end:
+
+- ingestion from several source types
+- extraction and normalization
+- document chunking
+- embedding and local vector storage
+- retrieval
+- grounded answer generation with citations
+- export and workspace lifecycle management
+
+## Current Capabilities
+
+- Create and reopen named research workspaces
+- Store workspaces per user under isolated local directories
+- Ingest content from:
+  - Serper-backed search results
+  - pasted URLs
+  - YouTube URLs
+  - TXT uploads
+  - PDF uploads with OCR fallback
+- Extract article text with `trafilatura`, then fall back to `Playwright` for JS-heavy pages
+- Chunk documents with LangChain text splitters
+- Embed documents with Hugging Face sentence-transformer embeddings
+- Save and reload FAISS vector stores locally
+- Ask questions against the active workspace using Groq
+- Format answers with source citations and Markdown/code blocks
+- Track token usage per authenticated user
+- Persist conversation history per workspace
+- Export selected or full conversations to themed PDF files
+
+## System Overview
 
 ```text
-User Login
+User Input
    |
-   +--> Save Groq API Key
-   |
-   +--> Create Research Workspace
+   +--> Search query / URL / YouTube / TXT / PDF
            |
-           +--> Search / URL / YouTube / TXT / PDF
-                    |
-                    v
-             Extraction + Normalization
-                    |
-                    v
-              LangChain Documents
-                    |
-                    v
-               Text Chunking
-                    |
-                    v
-         Hugging Face Embeddings + FAISS
-                    |
-                    v
-              Retrieval for Question
-                    |
-                    v
-             Groq Grounded Answer
-                    |
-                    v
-       Chat History + Themed PDF Export
+           v
+     Extraction + Normalization
+           |
+           v
+      LangChain Documents
+           |
+           v
+         Chunking
+           |
+           v
+   Hugging Face Embeddings
+           |
+           v
+      FAISS Vector Store
+           |
+           v
+        Retrieval
+           |
+           v
+   Groq Answer Generation
+           |
+           v
+   Chat History + PDF Export
 ```
 
-## Tech Stack
+## Code Highlights
 
-| Layer | Technology |
-| --- | --- |
-| UI | Streamlit |
-| Authentication | Local JSON-backed user storage |
-| Search | Serper API |
-| Web extraction | `trafilatura`, `requests`, `BeautifulSoup` |
-| YouTube transcripts | `youtube-transcript-api` |
-| Chunking | LangChain text splitters |
-| Embeddings | Hugging Face sentence-transformers |
-| Vector store | FAISS |
-| Answer generation | Groq |
-| PDF parsing/export | PyMuPDF |
+These are a few real implementation snippets from the project that best represent the RAG flow, workspace orchestration, and export layer.
 
-## Repository Layout
+### Prompt building with grounded citation rules
 
-```text
-Easy_Research/
-|-- app.py
-|-- .env.example
-|-- requirements.txt
-|-- README.md
-|-- docs/
-|   `-- images/
-|       |-- Home_Page.png
-|       |-- Ask.png
-|       `-- Download.png
-`-- src/
-    |-- answer_generator.py
-    |-- chat_export.py
-    |-- chat_history_manager.py
-    |-- config.py
-    |-- document_processor.py
-    |-- file_ingestor.py
-    |-- history_manager.py
-    |-- input_parser.py
-    |-- pdf_loader.py
-    |-- retriever.py
-    |-- serper_search.py
-    |-- user_manager.py
-    |-- vector_store.py
-    |-- web_extractor.py
-    `-- youtube_loader.py
-```
-
-## Key Implementation Highlights
-
-### 1. Mixed-source workspace building
-
-This is the part that lets one workspace combine search results, direct URLs, YouTube links, and uploaded files.
+This is the core prompt construction pattern used before sending a question to Groq:
 
 ```python
-def process_input_sources(source_input: str, uploaded_files, result_count: int) -> tuple[list[dict], list]:
-    manual_urls, google_query = extract_urls_and_queries(source_input)
-    uploaded_files = uploaded_files or []
-
-    if not google_query and not manual_urls and not uploaded_files:
-        raise ValueError("Please provide a search topic, URL, YouTube link, TXT file, or PDF file.")
-
-    extracted_items: list[dict] = []
-    all_chunks = []
-
-    if google_query:
-        search_results = search_serper(google_query, int(result_count))
-        for item in search_results:
-            extracted_item = extract_content(
-                url=item["link"],
-                title=item.get("title", ""),
-                snippet=item.get("snippet", ""),
-            )
-            if extracted_item.get("content"):
-                extracted_items.append(extracted_item)
-```
-
-### 2. Local vector-store creation
-
-The vector pipeline uses sentence-transformer embeddings with FAISS persistence.
-
-```python
-def create_and_save_vector_store(chunks, save_path: str) -> FAISS:
-    vector_store = create_vector_store(chunks)
-    os.makedirs(save_path, exist_ok=True)
-    vector_store.save_local(save_path)
-    return vector_store
-
-
-def load_vector_store(save_path: str) -> FAISS:
-    return FAISS.load_local(
-        folder_path=save_path,
-        embeddings=get_embedding_model(),
-        allow_dangerous_deserialization=True,
-    )
-```
-
-### 3. Grounded answer generation with citations
-
-The answer prompt is built directly from retrieved chunks and passed to Groq with a citation-oriented structure.
-
-```python
-def build_rag_prompt(question: str, retrieved_chunks: list[dict]) -> str:
+def build_rag_prompt(question, retrieved_chunks):
     context = build_context_from_chunks(retrieved_chunks)
-    return f"""
-You are a grounded research assistant.
+    recent_context = get_recent_answers_context()
 
-Answer the user question using only the provided retrieved context.
+    prompt = f"""
+You are an advanced AI research assistant.
+
+Answer the user question ONLY from the provided retrieved context.
 
 Rules:
-1. Do not invent facts.
-2. Use citation markers like [1], [2], [3].
-3. Keep the answer clean and readable.
-4. If the context is insufficient, say so clearly.
+1. Answer ONLY from the retrieved context.
+2. Do not hallucinate or invent facts.
+3. Use citation numbers inside the answer like [1], [2], [3].
+4. Do NOT paste full URLs inside the main answer.
+5. Keep the answer clean, structured, and readable.
+6. If the answer includes code, format it in fenced Markdown code blocks with the correct language when obvious.
+7. Preserve indentation inside code examples.
+8. If the retrieved context does not support a code example, say that clearly instead of inventing one.
+
+Conversation Memory:
+{recent_context}
 
 User Question:
 {question}
@@ -190,43 +135,165 @@ Retrieved Context:
 {context}
 
 Final Answer:
-""".strip()
+"""
+    return prompt
 ```
 
-### 4. Themed PDF export
+### Chunk enrichment with source metadata
 
-Conversation exports support light and dark themes, and code blocks are rendered with a dedicated monospaced layout.
+This is the part that keeps each chunk traceable back to its source and dataset:
 
 ```python
-def build_chat_history_pdf(chat_history: list[dict], workspace_name: str, theme: str = "light") -> bytes:
-    theme_colors = _theme_colors(theme)
-    content_start_y = TOP_MARGIN + 78
-    export_time = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-    doc = fitz.open()
-    page = _ensure_page(doc, theme_colors)
-    _draw_header(
-        page=page,
-        title="Easy Research Chat Export",
-        workspace_name=workspace_name or "Untitled",
-        generated_at=export_time,
-        theme_colors=theme_colors,
+def process_extracted_item_into_chunks(extracted_item: dict, source_type: str, dataset_id: str):
+    source_id = str(uuid.uuid4())[:8]
+    chunks = process_extracted_content(extracted_item)
+    chunks = add_source_metadata_to_chunks(
+        chunks=chunks,
+        source_id=source_id,
+        source_type=source_type,
+        dataset_id=dataset_id,
     )
+    extracted_item["source_id"] = source_id
+    extracted_item["source_type"] = source_type
+    extracted_item["dataset_id"] = dataset_id
+    return chunks, extracted_item
 ```
 
-## Features in the Current Build
+### PDF code-block rendering with wrapping
 
-- local sign-up and sign-in flow
-- per-user saved Groq API keys
-- per-user token usage tracking
-- research workspace creation and reload
-- persistent FAISS indexes
-- persistent Q&A history
-- newest-first history display inside the ask flow
-- download tab dedicated to export actions
-- light and dark PDF theme selection
-- selected-entry or full-conversation PDF downloads
+This is one of the export details that makes downloaded conversations look much cleaner, especially for code answers:
 
-## Local Setup
+```python
+def _draw_code_block(page, code_text: str, y: float, theme: str):
+    colors = _code_colors(theme)
+    char_width = 6.1
+    max_chars = max(int((CONTENT_WIDTH - 24) / char_width), 24)
+    lines = _wrap_code_lines(code_text, max_chars)
+    line_height = 14
+    block_height = 20 + (len(lines) * line_height)
+    block_rect = fitz.Rect(LEFT_MARGIN, y, PAGE_WIDTH - RIGHT_MARGIN, y + block_height)
+
+    page.draw_rect(
+        block_rect,
+        fill=colors["background"],
+        color=colors["border"],
+    )
+
+    current_y = y + 16
+
+    for line in lines:
+        current_x = LEFT_MARGIN + 12
+        for token_type, token_text in _token_spans(line):
+            page.insert_text(
+                (current_x, current_y),
+                token_text,
+                fontname=CODE_FONT,
+                fontsize=10.5,
+                color=colors[token_type],
+            )
+            current_x += len(token_text) * char_width
+        current_y += line_height
+
+    return y + block_height + 10
+```
+
+## Tech Stack
+
+| Layer | Technology |
+| --- | --- |
+| UI | Streamlit |
+| Authentication and local account state | JSON-backed local storage |
+| Search ingestion | Serper API |
+| Web extraction | Trafilatura, BeautifulSoup, Playwright |
+| YouTube ingestion | youtube-transcript-api |
+| Document chunking | LangChain text splitters |
+| Embeddings | Hugging Face sentence-transformers |
+| Vector database | FAISS |
+| Answer generation | Groq |
+| PDF processing | PyMuPDF, EasyOCR |
+| Export | PyMuPDF-based PDF renderer |
+
+## Repository Layout
+
+```text
+Easy_Answer/
+|-- app.py
+|-- requirements.txt
+|-- README.md
+|-- config/
+|-- notebooks/
+|-- src/
+|   |-- answer_generator.py
+|   |-- chat_export.py
+|   |-- chat_history_manager.py
+|   |-- config.py
+|   |-- conversation_memory.py
+|   |-- document_processor.py
+|   |-- file_ingestor.py
+|   |-- history_manager.py
+|   |-- input_parser.py
+|   |-- pdf_loader.py
+|   |-- retriever.py
+|   |-- serper_search.py
+|   |-- session_state.py
+|   |-- ui_components.py
+|   |-- ui_styles.py
+|   |-- user_manager.py
+|   |-- vector_store.py
+|   |-- web_extractor.py
+|   |-- workspace_manager.py
+|   `-- youtube_loader.py
+`-- vector_store/
+```
+
+## Application Flow
+
+### 1. Authentication
+
+Users sign in or create an account. Each account stores:
+
+- username
+- password hash with salt
+- saved Groq API key
+- aggregated token usage
+- a private workspace root on disk
+
+### 2. Workspace creation
+
+The user creates a research workspace or reopens an existing one. Each workspace keeps:
+
+- vector store files
+- workspace metadata
+- source list
+- chat history
+
+### 3. Ingestion pipeline
+
+Depending on the source type, the app routes content through one of these paths:
+
+- search results -> Serper -> URL extraction
+- URL -> direct article/web extraction
+- YouTube URL -> transcript extraction
+- TXT -> direct file ingestion
+- PDF -> text extraction, then OCR fallback when needed
+
+### 4. Retrieval and answering
+
+The app:
+
+1. retrieves top matching chunks from FAISS
+2. builds a grounded prompt
+3. sends the prompt to Groq
+4. reformats the answer with citations and a clean sources section
+
+### 5. Export
+
+Conversation history can be exported as a light or dark themed PDF, either for:
+
+- the full conversation
+- selected question/answer entries
+
+## Setup
 
 ### 1. Create a virtual environment
 
@@ -235,29 +302,34 @@ python -m venv .venv
 .venv\Scripts\activate
 ```
 
-### 2. Install dependencies
+### 2. Install Python dependencies
 
 ```powershell
 pip install -r requirements.txt
 ```
 
-### 3. Create `.env`
+### 3. Install Playwright browser assets
 
-Use the provided `.env.example` as reference:
+This is required for the JavaScript-rendered web extraction fallback.
+
+```powershell
+playwright install chromium
+```
+
+### 4. Create a `.env` file
 
 ```env
 SERPER_API_KEY=your_serper_api_key
-GROQ_API_KEY=your_groq_api_key
 GROQ_MODEL=llama-3.1-8b-instant
 ```
 
 Notes:
 
-- `SERPER_API_KEY` is needed for search-result ingestion
-- `GROQ_MODEL` sets the default model name
-- the app can store a user-specific Groq API key after login
+- `SERPER_API_KEY` is required only for search-result ingestion.
+- The Groq API key is now entered and stored per user inside the app after login.
+- You do not need to hardcode `GROQ_API_KEY` in `.env` for normal usage anymore.
 
-## Run the App
+## Running the App
 
 ```powershell
 streamlit run app.py
@@ -271,39 +343,67 @@ http://localhost:8501
 
 ## Storage Model
 
-### User data
+### Per-user workspaces
 
-The app stores local account data and usage metadata under internal auth storage.
+Saved workspaces are stored under:
 
-### Research workspaces
+```text
+vector_store/users/<user_slug>/
+```
 
-Each user gets a dedicated workspace root. Every saved research workspace can contain:
+### Workspace contents
+
+Each workspace folder can contain:
 
 - FAISS index files
-- workspace metadata
-- saved source summaries
-- chat history for exports and reload
+- `metadata.json`
+- `chat_history.json`
 
-## Why This Project Matters
+### Auth and usage data
 
-This project is useful as a learning build because it covers the full practical RAG path rather than only isolated experiments:
+Local account data is stored under:
 
-- data ingestion
-- extraction cleanup
-- chunking
-- embedding
-- vector retrieval
-- grounded answer generation
-- persistence
-- user isolation
-- export-ready output
+```text
+config/auth/
+```
 
-## Current Status
+This directory is intentionally ignored by Git.
 
-The repository is in a solid usable state for local development and portfolio demonstration. The core workflow is complete: authenticate, build a workspace, ask grounded questions, review saved history, and export polished PDFs.
+## Source Extraction Notes
+
+### Web pages
+
+The extractor first tries `trafilatura`, then falls back to `Playwright` + BeautifulSoup when required.
+
+### PDFs
+
+The PDF pipeline first attempts selectable text extraction with `PyMuPDF`. If the PDF has poor or image-based text, it falls back to `EasyOCR`.
+
+### Citations
+
+The answer formatter rebuilds the sources section from the citations actually referenced in the generated answer, helping reduce duplicate or irrelevant source entries.
+
+## Development Notes
+
+- This codebase is local-first and optimized for experimentation and learning.
+- The current app uses Groq as the active LLM provider.
+- Older prototype and debug-only files were removed to keep the repository aligned with the current product surface.
+- The `notebooks/` directory can still be useful for experiments and one-off checks without affecting the application runtime.
+- Place README screenshots in `docs/images/` using these exact filenames:
+  - `Home_Page.png`
+  - `Ask.png`
+  - `Download.png`
+
+## Recommended Next Improvements
+
+- add automated tests for ingestion and retrieval flows
+- add password reset or account recovery support
+- add workspace rename support
+- add richer source inspection inside the UI
+- add structured logging instead of print-based diagnostics
 
 ## License
 
-No open-source license is included right now.
+This repository currently does not include an open-source license.
 
-For a personal learning and portfolio project, that is completely fine. Without a license, others can view the code on GitHub, but they do not automatically have permission to reuse, modify, or redistribute it.
+For a personal learning project, that is completely acceptable. If you later decide to make reuse permissive, you can add a license such as MIT, Apache-2.0, or GPL depending on how open you want the project to be.

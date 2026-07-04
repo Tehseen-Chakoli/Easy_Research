@@ -1,56 +1,63 @@
-"""Local user account and token-usage persistence for Easy Research."""
-
-from __future__ import annotations
+"""User account, credential, API-key, and usage persistence helpers."""
 
 import hashlib
 import hmac
 import json
+import os
 import re
 import secrets
 from datetime import datetime
-from pathlib import Path
-
-from src.config import AUTH_DIR, BASE_VECTOR_DIR
 
 
-USERS_FILE = AUTH_DIR / "users.json"
-USAGE_FILE = AUTH_DIR / "usage.json"
-WORKSPACE_ROOT = BASE_VECTOR_DIR / "users"
+AUTH_DIR = os.path.join("config", "auth")
+USERS_FILE = os.path.join(AUTH_DIR, "users.json")
+USAGE_FILE = os.path.join(AUTH_DIR, "usage.json")
+WORKSPACE_ROOT = os.path.join("vector_store", "users")
 
 
-def _read_json(path: Path, default):
-    """Read a JSON file, returning the provided default when missing."""
-    if not path.exists():
+def _ensure_parent(path: str):
+    """Create the parent directory for a managed JSON file if needed."""
+    os.makedirs(os.path.dirname(path), exist_ok=True)
+
+
+def _read_json(path: str, default):
+    """Read JSON from disk, falling back to the provided default payload."""
+    if not os.path.exists(path):
         return default
+
     with open(path, "r", encoding="utf-8") as file:
         return json.load(file)
 
 
-def _write_json(path: Path, data) -> None:
-    """Persist JSON data with stable indentation for easier inspection."""
-    path.parent.mkdir(parents=True, exist_ok=True)
+def _write_json(path: str, data):
+    """Persist JSON using UTF-8 and stable indentation for easier inspection."""
+    _ensure_parent(path)
     with open(path, "w", encoding="utf-8") as file:
-        json.dump(data, file, indent=2, ensure_ascii=False)
+        json.dump(data, file, indent=4, ensure_ascii=False)
 
 
 def slugify_user(username: str) -> str:
-    """Convert a username into a filesystem-safe user key."""
-    value = re.sub(r"[^a-z0-9]+", "_", (username or "").strip().lower())
-    return value.strip("_") or "user"
+    """Convert a username into a safe directory key."""
+    value = (username or "").strip().lower()
+    value = re.sub(r"[^a-z0-9]+", "_", value)
+    value = value.strip("_")
+    return value or "user"
 
 
 def _hash_password(password: str, salt: str) -> str:
-    """Hash a password with PBKDF2-HMAC using a per-user salt."""
+    """Hash a password with PBKDF2-HMAC using the stored per-user salt."""
+    password_bytes = password.encode("utf-8")
+    salt_bytes = bytes.fromhex(salt)
     return hashlib.pbkdf2_hmac(
         "sha256",
-        password.encode("utf-8"),
-        bytes.fromhex(salt),
+        password_bytes,
+        salt_bytes,
         120000,
     ).hex()
 
 
 def _public_user_record(record: dict) -> dict:
-    """Return only the fields safe to expose back to the UI."""
+    """Return only the account fields that are safe for the UI layer."""
     return {
         "username": record["username"],
         "user_slug": record["user_slug"],
@@ -60,15 +67,16 @@ def _public_user_record(record: dict) -> dict:
 
 
 def list_users() -> dict:
-    """Load all stored user accounts."""
+    """Load all persisted user records."""
     return _read_json(USERS_FILE, {})
 
 
 def register_user(username: str, password: str) -> dict:
-    """Create a new local account for the app."""
+    """Create a new account after validating the submitted credentials."""
     normalized_name = (username or "").strip()
     if not normalized_name:
         raise ValueError("Username is required.")
+
     if not password or len(password) < 6:
         raise ValueError("Password must be at least 6 characters long.")
 
@@ -92,76 +100,87 @@ def register_user(username: str, password: str) -> dict:
 
 
 def authenticate_user(username: str, password: str) -> dict:
-    """Validate credentials and return the public account payload."""
+    """Validate login credentials and return the safe public user payload."""
     users = list_users()
     lookup_key = (username or "").strip().lower()
     record = users.get(lookup_key)
     if not record:
         raise ValueError("Invalid username or password.")
 
+    expected_hash = record["password_hash"]
     actual_hash = _hash_password(password, record["password_salt"])
-    if not hmac.compare_digest(record["password_hash"], actual_hash):
+    if not hmac.compare_digest(expected_hash, actual_hash):
         raise ValueError("Invalid username or password.")
 
     return _public_user_record(record)
 
 
+def get_user_record(username: str) -> dict | None:
+    """Look up a public account record by username."""
+    users = list_users()
+    record = users.get((username or "").strip().lower())
+    if not record:
+        return None
+    return _public_user_record(record)
+
+
 def get_user_groq_key(username: str) -> str:
-    """Return the saved Groq API key for the account when available."""
+    """Return the saved Groq API key for the given user, if present."""
     users = list_users()
     record = users.get((username or "").strip().lower(), {})
     return record.get("groq_api_key", "")
 
 
-def save_user_groq_key(username: str, api_key: str) -> None:
-    """Store or replace the Groq API key for the given user."""
+def save_user_groq_key(username: str, api_key: str):
+    """Store or replace the Groq API key associated with an account."""
+    normalized_username = (username or "").strip().lower()
     users = list_users()
-    lookup_key = (username or "").strip().lower()
-    if lookup_key not in users:
+    if normalized_username not in users:
         raise ValueError("Account not found.")
 
-    users[lookup_key]["groq_api_key"] = (api_key or "").strip()
+    users[normalized_username]["groq_api_key"] = (api_key or "").strip()
     _write_json(USERS_FILE, users)
 
 
 def get_user_workspace_root(username: str) -> str:
-    """Return the dedicated workspace root for the active user."""
-    workspace_root = WORKSPACE_ROOT / slugify_user(username)
-    workspace_root.mkdir(parents=True, exist_ok=True)
-    return str(workspace_root)
+    """Return the on-disk workspace root for a specific user account."""
+    user_slug = slugify_user(username)
+    workspace_root = os.path.join(WORKSPACE_ROOT, user_slug)
+    os.makedirs(workspace_root, exist_ok=True)
+    return workspace_root
 
 
 def get_usage_summary(username: str) -> dict:
-    """Return accumulated token usage metrics for the current user."""
+    """Aggregate the persisted token-usage metrics for one user."""
     usage_store = _read_json(USAGE_FILE, {})
-    usage = usage_store.get(slugify_user(username), {})
+    user_usage = usage_store.get(slugify_user(username), {})
     return {
-        "total_prompt_tokens": int(usage.get("total_prompt_tokens", 0)),
-        "total_completion_tokens": int(usage.get("total_completion_tokens", 0)),
-        "total_tokens": int(usage.get("total_tokens", 0)),
-        "requests": int(usage.get("requests", 0)),
-        "last_updated": usage.get("last_updated", ""),
+        "total_prompt_tokens": int(user_usage.get("total_prompt_tokens", 0)),
+        "total_completion_tokens": int(user_usage.get("total_completion_tokens", 0)),
+        "total_tokens": int(user_usage.get("total_tokens", 0)),
+        "requests": int(user_usage.get("requests", 0)),
+        "last_updated": user_usage.get("last_updated"),
     }
 
 
-def record_token_usage(username: str, usage: dict) -> None:
-    """Accumulate request and token counts for the given user."""
+def record_token_usage(username: str, usage: dict):
+    """Accumulate prompt, completion, and total token usage for a user."""
     if not usage:
         return
 
     usage_store = _read_json(USAGE_FILE, {})
-    usage_key = slugify_user(username)
-    current = usage_store.get(usage_key, {})
+    user_key = slugify_user(username)
+    user_usage = usage_store.get(user_key, {})
 
     prompt_tokens = int(usage.get("prompt_tokens", 0) or 0)
     completion_tokens = int(usage.get("completion_tokens", 0) or 0)
     total_tokens = int(usage.get("total_tokens", 0) or 0)
 
-    current["total_prompt_tokens"] = int(current.get("total_prompt_tokens", 0)) + prompt_tokens
-    current["total_completion_tokens"] = int(current.get("total_completion_tokens", 0)) + completion_tokens
-    current["total_tokens"] = int(current.get("total_tokens", 0)) + total_tokens
-    current["requests"] = int(current.get("requests", 0)) + 1
-    current["last_updated"] = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+    user_usage["total_prompt_tokens"] = int(user_usage.get("total_prompt_tokens", 0)) + prompt_tokens
+    user_usage["total_completion_tokens"] = int(user_usage.get("total_completion_tokens", 0)) + completion_tokens
+    user_usage["total_tokens"] = int(user_usage.get("total_tokens", 0)) + total_tokens
+    user_usage["requests"] = int(user_usage.get("requests", 0)) + 1
+    user_usage["last_updated"] = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
 
-    usage_store[usage_key] = current
+    usage_store[user_key] = user_usage
     _write_json(USAGE_FILE, usage_store)

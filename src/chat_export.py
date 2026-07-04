@@ -1,5 +1,3 @@
-"""PDF export helpers for conversation history."""
-
 from __future__ import annotations
 
 import re
@@ -24,7 +22,6 @@ CODE_FONT = "Courier"
 
 
 def slugify_filename(value: str) -> str:
-    """Convert a workspace name into a clean export filename."""
     value = (value or "chat_export").strip().lower()
     value = re.sub(r"[^a-z0-9]+", "_", value)
     value = value.strip("_")
@@ -33,6 +30,7 @@ def slugify_filename(value: str) -> str:
 
 def _theme_colors(theme: str):
     normalized = (theme or "light").strip().lower()
+
     if normalized == "dark":
         return {
             "background": (0.07, 0.07, 0.07),
@@ -72,7 +70,13 @@ def _ensure_page(doc, theme_colors):
 
 
 def _draw_header(page, title: str, workspace_name: str, generated_at: str, theme_colors):
-    page.insert_text((LEFT_MARGIN, TOP_MARGIN), title, fontname=TITLE_FONT, fontsize=20, color=theme_colors["text"])
+    page.insert_text(
+        (LEFT_MARGIN, TOP_MARGIN),
+        title,
+        fontname=TITLE_FONT,
+        fontsize=20,
+        color=theme_colors["text"],
+    )
     page.insert_text(
         (LEFT_MARGIN, TOP_MARGIN + 24),
         f"Research Workspace: {workspace_name}",
@@ -105,7 +109,13 @@ def _draw_wrapped_lines(
     line_height: float,
 ):
     for line in lines:
-        page.insert_text((LEFT_MARGIN, y), line, fontname=fontname, fontsize=fontsize, color=theme_colors["text"])
+        page.insert_text(
+            (LEFT_MARGIN, y),
+            line,
+            fontname=fontname,
+            fontsize=fontsize,
+            color=theme_colors["text"],
+        )
         y += line_height
     return y
 
@@ -113,6 +123,7 @@ def _draw_wrapped_lines(
 def _split_markdown_sections(text: str) -> list[dict]:
     sections = []
     parts = re.split(r"```(\w+)?\n(.*?)```", text or "", flags=re.DOTALL)
+
     if not parts:
         return [{"type": "text", "content": text or ""}]
 
@@ -121,7 +132,11 @@ def _split_markdown_sections(text: str) -> list[dict]:
     while index + 1 < len(parts):
         language = (parts[index] or "text").strip()
         code = parts[index + 1].rstrip()
-        sections.append({"type": "code", "language": language, "content": code})
+        sections.append({
+            "type": "code",
+            "language": language,
+            "content": code,
+        })
         trailing = parts[index + 2] if index + 2 < len(parts) else ""
         sections.append({"type": "text", "content": trailing})
         index += 3
@@ -156,6 +171,7 @@ def _token_spans(line: str):
     token_pattern = re.compile(
         r"(#.*$|\"[^\"]*\"|'[^']*'|\b(?:def|class|return|import|from|for|while|if|elif|else|try|except|with|as|print|yield|lambda|in|not|and|or|True|False|None)\b|\b\d+(?:\.\d+)?\b)"
     )
+
     spans = []
     last_index = 0
     for match in token_pattern.finditer(line):
@@ -172,29 +188,37 @@ def _token_spans(line: str):
             spans.append(("number", token))
         else:
             spans.append(("keyword", token))
+
         last_index = end
 
     if last_index < len(line):
         spans.append(("default", line[last_index:]))
+
     return spans or [("default", line)]
 
 
 def _wrap_code_lines(code_text: str, max_chars: int) -> list[str]:
     wrapped_lines: list[str] = []
+
     for raw_line in (code_text or "").splitlines() or [""]:
         if raw_line == "":
             wrapped_lines.append("")
             continue
+
         remaining = raw_line
         while len(remaining) > max_chars:
             split_at = remaining.rfind(" ", 0, max_chars + 1)
             if split_at <= 0:
                 split_at = max_chars
+
             wrapped_lines.append(remaining[:split_at])
             remaining = remaining[split_at:]
+
             if remaining.startswith(" "):
                 remaining = remaining[1:]
+
         wrapped_lines.append(remaining)
+
     return wrapped_lines or [""]
 
 
@@ -207,9 +231,14 @@ def _draw_code_block(page, code_text: str, y: float, theme: str):
     block_height = 20 + (len(lines) * line_height)
     block_rect = fitz.Rect(LEFT_MARGIN, y, PAGE_WIDTH - RIGHT_MARGIN, y + block_height)
 
-    page.draw_rect(block_rect, fill=colors["background"], color=colors["border"])
+    page.draw_rect(
+        block_rect,
+        fill=colors["background"],
+        color=colors["border"],
+    )
 
     current_y = y + 16
+
     for line in lines:
         current_x = LEFT_MARGIN + 12
         for token_type, token_text in _token_spans(line):
@@ -222,11 +251,11 @@ def _draw_code_block(page, code_text: str, y: float, theme: str):
             )
             current_x += len(token_text) * char_width
         current_y += line_height
+
     return y + block_height + 10
 
 
 def build_chat_history_pdf(chat_history: list[dict], workspace_name: str, theme: str = "light") -> bytes:
-    """Build a themed PDF export for the saved workspace conversation."""
     theme_colors = _theme_colors(theme)
     content_start_y = TOP_MARGIN + 78
     export_time = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
@@ -234,13 +263,14 @@ def build_chat_history_pdf(chat_history: list[dict], workspace_name: str, theme:
     page = _ensure_page(doc, theme_colors)
     _draw_header(
         page=page,
-        title="Easy Research Chat Export",
+        title="Easy Answer Chat Export",
         workspace_name=workspace_name or "Untitled",
         generated_at=export_time,
         theme_colors=theme_colors,
     )
 
     y = content_start_y
+
     if not chat_history:
         page.insert_text(
             (LEFT_MARGIN, y),
@@ -258,45 +288,102 @@ def build_chat_history_pdf(chat_history: list[dict], workspace_name: str, theme:
 
         question_lines = _wrap_text(question, width=76)
         answer_sections = _split_markdown_sections(answer)
+        block_title = f"Conversation {index}"
         answer_line_count = 0
         for section in answer_sections:
             if section["type"] == "code":
-                answer_line_count += len(_wrap_code_lines(section["content"], max(int((CONTENT_WIDTH - 24) / 6.1), 24))) + 2
+                wrapped_code_lines = _wrap_code_lines(section["content"], max(int((CONTENT_WIDTH - 24) / 6.1), 24))
+                answer_line_count += len(wrapped_code_lines) + 2
             else:
                 answer_line_count += len(_wrap_text(section["content"], width=76))
 
-        estimated_height = 92 + ((2 + len(question_lines) + answer_line_count) * 16)
+        block_lines = 2 + len(question_lines) + answer_line_count
+        estimated_height = 92 + (block_lines * 16)
         if y > content_start_y and y + estimated_height > PAGE_HEIGHT - BOTTOM_MARGIN:
             page = _ensure_page(doc, theme_colors)
-            _draw_header(page, "Easy Research Chat Export", workspace_name or "Untitled", export_time, theme_colors)
+            _draw_header(
+                page=page,
+                title="Easy Answer Chat Export",
+                workspace_name=workspace_name or "Untitled",
+                generated_at=export_time,
+                theme_colors=theme_colors,
+            )
             y = content_start_y
 
-        page.insert_text((LEFT_MARGIN, y), f"Conversation {index}", fontname=BODY_BOLD_FONT, fontsize=13, color=theme_colors["accent"])
+        page.insert_text(
+            (LEFT_MARGIN, y),
+            block_title,
+            fontname=BODY_BOLD_FONT,
+            fontsize=13,
+            color=theme_colors["accent"],
+        )
         y += 18
+
         if time_text:
-            page.insert_text((LEFT_MARGIN, y), time_text, fontname=BODY_FONT, fontsize=10, color=theme_colors["muted"])
+            page.insert_text(
+                (LEFT_MARGIN, y),
+                time_text,
+                fontname=BODY_FONT,
+                fontsize=10,
+                color=theme_colors["muted"],
+            )
             y += 14
 
-        page.insert_text((LEFT_MARGIN, y), "Question", fontname=BODY_BOLD_FONT, fontsize=11, color=theme_colors["text"])
+        page.insert_text(
+            (LEFT_MARGIN, y),
+            "Question",
+            fontname=BODY_BOLD_FONT,
+            fontsize=11,
+            color=theme_colors["text"],
+        )
         y += 14
-        y = _draw_wrapped_lines(page, question_lines, y, theme_colors, BODY_FONT, 11, 14)
+        y = _draw_wrapped_lines(
+            page=page,
+            lines=question_lines,
+            y=y,
+            theme_colors=theme_colors,
+            fontname=BODY_FONT,
+            fontsize=11,
+            line_height=14,
+        )
         y += 6
 
-        page.insert_text((LEFT_MARGIN, y), "Answer", fontname=BODY_BOLD_FONT, fontsize=11, color=theme_colors["text"])
+        page.insert_text(
+            (LEFT_MARGIN, y),
+            "Answer",
+            fontname=BODY_BOLD_FONT,
+            fontsize=11,
+            color=theme_colors["text"],
+        )
         y += 14
 
         for section in answer_sections:
             if section["type"] == "code":
-                required_height = 30 + (len(_wrap_code_lines(section["content"], max(int((CONTENT_WIDTH - 24) / 6.1), 24))) * 14)
+                code_lines = _wrap_code_lines(section["content"], max(int((CONTENT_WIDTH - 24) / 6.1), 24))
+                required_height = 30 + (len(code_lines) * 14)
                 if y > content_start_y and y + required_height > PAGE_HEIGHT - BOTTOM_MARGIN:
                     page = _ensure_page(doc, theme_colors)
-                    _draw_header(page, "Easy Research Chat Export", workspace_name or "Untitled", export_time, theme_colors)
+                    _draw_header(
+                        page=page,
+                        title="Easy Answer Chat Export",
+                        workspace_name=workspace_name or "Untitled",
+                        generated_at=export_time,
+                        theme_colors=theme_colors,
+                    )
                     y = content_start_y
                 y = _draw_code_block(page, section["content"], y, theme)
             else:
                 answer_lines = _wrap_text(section["content"], width=76)
                 if answer_lines:
-                    y = _draw_wrapped_lines(page, answer_lines, y, theme_colors, BODY_FONT, 11, 14)
+                    y = _draw_wrapped_lines(
+                        page=page,
+                        lines=answer_lines,
+                        y=y,
+                        theme_colors=theme_colors,
+                        fontname=BODY_FONT,
+                        fontsize=11,
+                        line_height=14,
+                    )
                     y += 6
         y += 18
 

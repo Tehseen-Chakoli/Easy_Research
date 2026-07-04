@@ -1,28 +1,43 @@
-"""Helpers for parsing mixed research input into queries and URLs."""
-
-from __future__ import annotations
+# src/input_parser.py
 
 import re
 from urllib.parse import urlparse
 
 
 def is_youtube_url(url: str) -> bool:
-    """Return whether a URL points to a supported YouTube host."""
-    lower_url = (url or "").lower()
+    """
+    Checks whether a URL belongs to YouTube.
+    Supports both youtube.com and youtu.be links.
+    """
+    lower_url = url.lower()
     return "youtube.com" in lower_url or "youtu.be" in lower_url
 
 
 def is_url(text: str) -> bool:
-    """Validate whether a value is an HTTP or HTTPS URL."""
+    """
+    Validates whether the given text is a proper http/https URL.
+    """
     try:
         parsed = urlparse(text)
-        return parsed.scheme in {"http", "https"} and bool(parsed.netloc)
+        return parsed.scheme in ["http", "https"] and bool(parsed.netloc)
     except Exception:
         return False
 
 
-def extract_urls_and_queries(source_input: str) -> tuple[list[str], str]:
-    """Split mixed user input into unique URLs and a remaining search query."""
+def extract_urls_and_queries(source_input: str):
+    """
+    Allows the user to paste mixed input in one box:
+    - normal Google search text
+    - one or multiple website URLs
+    - YouTube URLs
+
+    URLs can be pasted line by line, comma separated, or mixed inside text.
+
+    Returns:
+        clean_urls: list of valid unique URLs
+        google_query: remaining text to use as Google search query
+    """
+
     if not source_input:
         return [], ""
 
@@ -35,12 +50,15 @@ def extract_urls_and_queries(source_input: str) -> tuple[list[str], str]:
         for line in query_text.splitlines()
         if line.strip(" ,")
     ]
+
     google_query = " ".join(query_lines).strip()
 
     seen = set()
     clean_urls = []
+
     for url in urls:
         clean_url = url.strip().rstrip(").,]")
+
         if clean_url and clean_url not in seen and is_url(clean_url):
             clean_urls.append(clean_url)
             seen.add(clean_url)

@@ -5,3 +5,7 @@ beautifulsoup4
 trafilatura
 langchain-core
 langchain-text-splitters
+langchain-community
+langchain-huggingface
+faiss-cpu
+sentence-transformers

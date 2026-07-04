@@ -2,9 +2,10 @@
 
 import streamlit as st
 
-from src.config import APP_TITLE, DEFAULT_NUM_RESULTS, SERPER_API_KEY
+from src.config import APP_TITLE, DEFAULT_NUM_RESULTS, EMBEDDING_MODEL_NAME, SERPER_API_KEY
 from src.document_processor import process_extracted_content
 from src.serper_search import search_serper
+from src.vector_store import create_vector_store
 from src.web_extractor import extract_content
 
 
@@ -21,6 +22,10 @@ if "extracted_item" not in st.session_state:
     st.session_state["extracted_item"] = None
 if "chunked_documents" not in st.session_state:
     st.session_state["chunked_documents"] = []
+if "vector_store_ready" not in st.session_state:
+    st.session_state["vector_store_ready"] = False
+if "vector_store" not in st.session_state:
+    st.session_state["vector_store"] = None
 
 st.title(APP_TITLE)
 st.caption("Research workspace builder for learning and experimenting with RAG.")
@@ -98,6 +103,8 @@ if search_results:
                             snippet=item.get("snippet", ""),
                         )
                         st.session_state["chunked_documents"] = []
+                        st.session_state["vector_store_ready"] = False
+                        st.session_state["vector_store"] = None
                     except Exception as exc:
                         st.session_state["extracted_item"] = {
                             "title": item.get("title", ""),
@@ -123,6 +130,8 @@ if extracted_item:
         if st.button("Create Document Chunks", use_container_width=True):
             chunked_documents = process_extracted_content(extracted_item)
             st.session_state["chunked_documents"] = chunked_documents
+            st.session_state["vector_store_ready"] = False
+            st.session_state["vector_store"] = None
     else:
         error_text = extracted_item.get("error") or "No readable content could be extracted."
         st.error(error_text)
@@ -142,5 +151,17 @@ if chunked_documents:
         first_chunk.page_content[:2500],
         height=260,
     )
+
+    # Once chunking is available, the next milestone is turning chunks into vectors.
+    if st.button("Create Vector Store", use_container_width=True):
+        with st.spinner("Building vector store from chunked documents..."):
+            st.session_state["vector_store"] = create_vector_store(chunked_documents)
+            st.session_state["vector_store_ready"] = True
+
+vector_store_ready = st.session_state.get("vector_store_ready", False)
+if vector_store_ready:
+    st.subheader("Vector Store Status")
+    st.success("Vector store created successfully.")
+    st.caption(f"Embedding model: {EMBEDDING_MODEL_NAME}")
 
 st.info("Next step: store chunked research documents for retrieval and question answering.")

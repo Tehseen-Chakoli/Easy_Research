@@ -15,6 +15,7 @@ DEFAULT_NUM_RESULTS = int(os.getenv("DEFAULT_NUM_RESULTS", "5"))
 MIN_CONTENT_LENGTH = int(os.getenv("MIN_CONTENT_LENGTH", "200"))
 DEFAULT_CHUNK_SIZE = int(os.getenv("DEFAULT_CHUNK_SIZE", "1000"))
 DEFAULT_CHUNK_OVERLAP = int(os.getenv("DEFAULT_CHUNK_OVERLAP", "200"))
+EMBEDDING_MODEL_NAME = os.getenv("EMBEDDING_MODEL_NAME", "BAAI/bge-base-en-v1.5").strip()
 SERPER_SEARCH_URL = "https://google.serper.dev/search"
 SERPER_API_KEY = os.getenv("SERPER_API_KEY", "").strip()
 GROQ_MODEL = os.getenv("GROQ_MODEL", "llama-3.1-8b-instant").strip()

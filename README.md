@@ -22,6 +22,8 @@ The project now has:
 - extracted page preview inside the UI
 - document creation and chunking
 - chunk preview for extracted research content
+- embedding model configuration
+- in-memory FAISS vector store creation
 - a clean local development baseline
 
 ## Project Direction
@@ -60,7 +62,7 @@ At this stage:
 
 The current codebase has started source discovery and is now ready to expand into:
 
-- retrieval and vector storage
+- retrieval and question answering
 - grounded answer generation
 
 ## Implemented So Far
@@ -74,6 +76,8 @@ The application can now:
 - preview normalized extracted content before document processing
 - convert extracted content into LangChain documents
 - split extracted content into retrieval-ready chunks
+- create embeddings for processed chunks
+- build an initial FAISS vector store from those chunks
 
 ## RAG Processing Step
 
@@ -83,6 +87,15 @@ After extraction, the current pipeline now:
 2. preserves source metadata on that document
 3. splits the content into overlapping chunks
 4. previews the first chunk in the UI
+5. creates an in-memory vector store from the chunk set
+
+## Vectorization Step
+
+The application now includes the first vector indexing layer:
+
+1. use a Hugging Face embedding model
+2. normalize embeddings for retrieval-oriented similarity search
+3. build a FAISS index from the processed research chunks
 
 ## Extraction Pipeline
 

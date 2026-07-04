@@ -29,6 +29,8 @@ The project now has:
 - saved workspace metadata
 - persisted FAISS workspace storage
 - chat history persistence and reload
+- mixed source ingestion from search, URLs, YouTube, TXT, and PDF
+- tabbed workspace flow for build, ask, and history
 - a clean local development baseline
 
 ## Project Direction
@@ -55,6 +57,7 @@ Create a local `.env` file from the provided example:
 
 ```env
 SERPER_API_KEY=your_serper_api_key
+GROQ_API_KEY=your_groq_api_key
 GROQ_MODEL=llama-3.1-8b-instant
 ```
 
@@ -68,7 +71,6 @@ At this stage:
 
 The current codebase now supports the first complete RAG loop and is ready to expand into:
 
-- richer multi-source ingestion
 - user-specific account flows
 - export and interface polish
 
@@ -90,6 +92,7 @@ The application can now:
 - save research workspaces locally
 - reload saved workspaces later
 - persist chat history per workspace
+- combine multiple source types into one research workspace
 
 ## RAG Processing Step
 
@@ -127,6 +130,16 @@ The application now persists core research state to disk:
 2. store workspace metadata as JSON
 3. append Q&A history to workspace-level chat files
 4. reload a saved workspace and continue asking questions later
+
+## Multi-Source Ingestion
+
+The build flow now supports combining multiple source types in one workspace:
+
+1. search query text for Serper-powered source discovery
+2. pasted website URLs
+3. pasted YouTube links with transcript extraction
+4. uploaded TXT files
+5. uploaded PDF files
 
 ## Extraction Pipeline
 

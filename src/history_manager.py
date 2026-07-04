@@ -63,7 +63,9 @@ def list_research_history() -> list[dict]:
                 "topic": metadata.get("topic", folder_name),
                 "created_at": metadata.get("created_at", ""),
                 "total_chunks": metadata.get("total_chunks", 0),
+                "total_sources": metadata.get("total_sources", 0),
                 "source_url": metadata.get("source_url", ""),
+                "sources": metadata.get("sources", []),
             }
         )
 

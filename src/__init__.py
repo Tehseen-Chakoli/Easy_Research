@@ -1,0 +1,1 @@
+"""Easy Research application package."""

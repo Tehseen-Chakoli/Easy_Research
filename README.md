@@ -6,18 +6,17 @@
   <img src="https://img.shields.io/badge/project-learning%20rag-2563EB?style=for-the-badge" alt="Learning RAG" />
 </p>
 
-Easy Research is a personal learning project focused on building a research-oriented RAG application step by step. The Git history for this repository is being created in batches so each push reflects a meaningful milestone in the build process.
+Easy Research is a personal learning project focused on building a research-oriented RAG application step by step. The goal is to turn search-driven research inputs into a structured local workflow for retrieval and grounded answering.
 
 ## Current Status
 
-This repository is in its first setup batch.
+The project now has:
 
-Included in this batch:
-
-- initial Streamlit app shell
-- dependency manifest
-- base `.gitignore`
-- starter README
+- a Streamlit application shell
+- a base `src/` package
+- environment-backed configuration
+- a starter research setup interface
+- a clean local development baseline
 
 ## Project Direction
 
@@ -26,7 +25,7 @@ The goal is to evolve this into a multi-source research workspace that can:
 - collect information from search results, URLs, documents, and transcripts
 - build a local retrieval pipeline
 - generate grounded answers from stored research material
-- grow incrementally with visible development history
+- support a practical end-to-end research workflow
 
 ## Run Locally
 
@@ -37,10 +36,25 @@ pip install -r requirements.txt
 streamlit run app.py
 ```
 
-## Planned Next Batch
+## Environment Setup
 
-The next batch is expected to add:
+Create a local `.env` file from the provided example:
 
-- environment configuration
-- project structure under `src/`
-- initial setup for search/config handling
+```env
+SERPER_API_KEY=your_serper_api_key
+GROQ_MODEL=llama-3.1-8b-instant
+```
+
+At this stage:
+
+- `SERPER_API_KEY` is used to prepare the search integration path
+- `GROQ_MODEL` is reserved for the answer-generation layer that will be added later
+
+## Current Focus
+
+The current codebase is establishing the base project structure before adding:
+
+- search ingestion
+- web extraction
+- retrieval and vector storage
+- grounded answer generation

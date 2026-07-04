@@ -8,6 +8,7 @@ import streamlit as st
 
 from src.answer_generator import generate_answer_with_usage
 from src.chat_history_manager import append_chat_message, load_chat_history
+from src.chat_export import build_chat_history_pdf, slugify_filename
 from src.config import (
     APP_TITLE,
     DEFAULT_NUM_RESULTS,
@@ -294,7 +295,7 @@ with st.sidebar:
     else:
         st.caption("No saved workspaces yet.")
 
-build_tab, ask_tab, history_tab = st.tabs(["Build", "Ask", "History"])
+build_tab, ask_tab, download_tab = st.tabs(["Build", "Ask", "Download"])
 
 with build_tab:
     st.subheader("Build Research Workspace")
@@ -415,12 +416,57 @@ with ask_tab:
             st.subheader("Generated Answer")
             st.markdown(generated_answer)
 
-with history_tab:
+with download_tab:
     qa_history = st.session_state.get("qa_history", [])
     if not qa_history:
         st.caption("No saved questions yet for the active workspace.")
     else:
-        st.subheader("Chat History")
+        st.subheader("Export Conversation")
+        export_scope = st.radio(
+            "Export scope",
+            ["Entire conversation", "Selected questions and answers"],
+            horizontal=True,
+        )
+        export_theme = st.selectbox(
+            "PDF theme",
+            ["Light theme", "Dark theme"],
+        )
+
+        selected_history = qa_history
+        if export_scope == "Selected questions and answers":
+            options = [
+                f"{item.get('time', 'Recent')} | {item.get('question', 'Untitled question')[:80]}"
+                for item in qa_history
+            ]
+            selected_labels = st.multiselect(
+                "Choose entries to export",
+                options=options,
+                default=options[:1] if options else [],
+            )
+            selected_history = [
+                item for item, label in zip(qa_history, options) if label in selected_labels
+            ]
+            if not selected_history:
+                st.warning("Please select at least one question and answer to export.")
+                selected_history = []
+
+        if selected_history:
+            selected_theme = "light" if export_theme == "Light theme" else "dark"
+            file_suffix = "light" if selected_theme == "light" else "dark"
+            pdf_bytes = build_chat_history_pdf(
+                selected_history,
+                workspace_name=st.session_state.get("active_workspace_name", "research_workspace"),
+                theme=selected_theme,
+            )
+            st.download_button(
+                "Download PDF",
+                data=pdf_bytes,
+                file_name=f"{slugify_filename(st.session_state.get('active_workspace_name', 'research_workspace'))}_chat_{file_suffix}.pdf",
+                mime="application/pdf",
+                use_container_width=True,
+            )
+
+        st.subheader("Conversation History")
         for index, item in enumerate(reversed(qa_history), start=1):
             with st.container(border=True):
                 st.markdown(f"**Q{index}. {item.get('question', '')}**")

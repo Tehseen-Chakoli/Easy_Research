@@ -34,6 +34,8 @@ The project now has:
 - local authentication and sign-in flow
 - per-user workspace isolation
 - saved Groq API key and token usage tracking
+- themed PDF conversation export
+- final build/ask/download app flow
 - a clean local development baseline
 
 ## Project Direction
@@ -74,8 +76,8 @@ At this stage:
 
 The current codebase now supports the first complete RAG loop and is ready to expand into:
 
-- export and interface polish
-- richer UI refinement
+- further UI refinement
+- optional deployment polish
 
 ## Implemented So Far
 
@@ -99,6 +101,7 @@ The application can now:
 - sign in with a local user account
 - save a Groq API key per user
 - track token usage by account
+- export full or selected conversations as themed PDFs
 
 ## RAG Processing Step
 
@@ -145,6 +148,14 @@ The application now includes a local account system:
 2. each user gets a dedicated workspace root
 3. each user can save a private Groq API key
 4. token usage is accumulated per account
+
+## Export Layer
+
+The application now includes a workspace export flow:
+
+1. choose the full conversation or selected entries
+2. choose a light or dark PDF theme
+3. download a formatted PDF with preserved question and answer structure
 
 ## Multi-Source Ingestion
 

@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import os
+from pathlib import Path
 
 from dotenv import load_dotenv
 
@@ -11,6 +12,7 @@ load_dotenv()
 
 
 APP_TITLE = "Easy Research"
+BASE_VECTOR_DIR = Path("vector_store")
 DEFAULT_NUM_RESULTS = int(os.getenv("DEFAULT_NUM_RESULTS", "5"))
 MIN_CONTENT_LENGTH = int(os.getenv("MIN_CONTENT_LENGTH", "200"))
 DEFAULT_CHUNK_SIZE = int(os.getenv("DEFAULT_CHUNK_SIZE", "1000"))

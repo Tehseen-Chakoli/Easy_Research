@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import os
+
 from langchain_community.vectorstores import FAISS
 from langchain_huggingface import HuggingFaceEmbeddings
 
@@ -26,4 +28,21 @@ def create_vector_store(chunks) -> FAISS:
     return FAISS.from_documents(
         documents=chunks,
         embedding=embeddings,
+    )
+
+
+def create_and_save_vector_store(chunks, save_path: str) -> FAISS:
+    """Build a FAISS store and persist it to the given workspace path."""
+    vector_store = create_vector_store(chunks)
+    os.makedirs(save_path, exist_ok=True)
+    vector_store.save_local(save_path)
+    return vector_store
+
+
+def load_vector_store(save_path: str) -> FAISS:
+    """Reload a persisted FAISS store from disk for later retrieval."""
+    return FAISS.load_local(
+        folder_path=save_path,
+        embeddings=get_embedding_model(),
+        allow_dangerous_deserialization=True,
     )

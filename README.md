@@ -26,6 +26,9 @@ The project now has:
 - in-memory FAISS vector store creation
 - similarity-based chunk retrieval
 - first grounded answer-generation flow with Groq
+- saved workspace metadata
+- persisted FAISS workspace storage
+- chat history persistence and reload
 - a clean local development baseline
 
 ## Project Direction
@@ -65,9 +68,9 @@ At this stage:
 
 The current codebase now supports the first complete RAG loop and is ready to expand into:
 
-- persistent workspace storage
-- chat history
 - richer multi-source ingestion
+- user-specific account flows
+- export and interface polish
 
 ## Implemented So Far
 
@@ -84,6 +87,9 @@ The application can now:
 - build an initial FAISS vector store from those chunks
 - retrieve the most relevant chunks for a question
 - generate a grounded answer from retrieved context using Groq
+- save research workspaces locally
+- reload saved workspaces later
+- persist chat history per workspace
 
 ## RAG Processing Step
 
@@ -112,6 +118,15 @@ The current question-answering flow now works like this:
 3. build a grounded prompt from those retrieved chunks
 4. send the prompt to Groq for answer generation
 5. render the final answer in the Streamlit UI
+
+## Persistence Layer
+
+The application now persists core research state to disk:
+
+1. save FAISS indexes into timestamped workspace folders
+2. store workspace metadata as JSON
+3. append Q&A history to workspace-level chat files
+4. reload a saved workspace and continue asking questions later
 
 ## Extraction Pipeline
 

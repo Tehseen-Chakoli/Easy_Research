@@ -18,6 +18,7 @@ __pycache__/
 .ipynb_checkpoints/
 
 .streamlit/secrets.toml
+vector_store/
 
 *.log
 .DS_Store

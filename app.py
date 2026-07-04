@@ -1,10 +1,14 @@
 """Early application shell for Easy Research."""
 
+from datetime import datetime
+
 import streamlit as st
 
 from src.answer_generator import generate_answer_from_chunks
+from src.chat_history_manager import append_chat_message, load_chat_history
 from src.config import (
     APP_TITLE,
+    BASE_VECTOR_DIR,
     DEFAULT_NUM_RESULTS,
     DEFAULT_RETRIEVAL_K,
     EMBEDDING_MODEL_NAME,
@@ -13,9 +17,10 @@ from src.config import (
     SERPER_API_KEY,
 )
 from src.document_processor import process_extracted_content
+from src.history_manager import create_topic_folder, list_research_history, save_metadata
 from src.retriever import retrieve_relevant_chunks
 from src.serper_search import search_serper
-from src.vector_store import create_vector_store
+from src.vector_store import create_and_save_vector_store, load_vector_store
 from src.web_extractor import extract_content
 
 
@@ -40,6 +45,12 @@ if "retrieved_chunks" not in st.session_state:
     st.session_state["retrieved_chunks"] = []
 if "generated_answer" not in st.session_state:
     st.session_state["generated_answer"] = ""
+if "active_workspace_path" not in st.session_state:
+    st.session_state["active_workspace_path"] = ""
+if "active_workspace_name" not in st.session_state:
+    st.session_state["active_workspace_name"] = ""
+if "qa_history" not in st.session_state:
+    st.session_state["qa_history"] = []
 
 st.title(APP_TITLE)
 st.caption("Research workspace builder for learning and experimenting with RAG.")
@@ -57,12 +68,17 @@ st.markdown(
     """
 )
 
-with st.container(border=True):
-    st.subheader("Research setup")
-    research_query = st.text_input(
-        "Research topic",
-        placeholder="Example: latest multi-agent RAG systems",
-    )
+    with st.container(border=True):
+        workspace_name = st.text_input(
+            "Workspace name",
+            value=st.session_state.get("active_workspace_name", ""),
+            placeholder="Example: Multi-agent healthcare research",
+        )
+        st.subheader("Research setup")
+        research_query = st.text_input(
+            "Research topic",
+            placeholder="Example: latest multi-agent RAG systems",
+        )
     result_count = st.number_input(
         "Planned search results",
         min_value=1,
@@ -79,6 +95,30 @@ with st.container(border=True):
 
     st.write("Current query preview:", research_query or "No topic entered yet")
     st.write("Configured result count:", int(result_count))
+    if workspace_name.strip():
+        st.write("Active workspace name:", workspace_name)
+
+saved_workspaces = list_research_history()
+if saved_workspaces:
+    with st.sidebar:
+        st.markdown("### Saved Workspaces")
+        selected_workspace = st.selectbox(
+            "Open saved workspace",
+            options=saved_workspaces,
+            format_func=lambda item: f"{item['topic']} | chunks: {item['total_chunks']}",
+        )
+        if st.button("Load Workspace", use_container_width=True):
+            st.session_state["active_workspace_path"] = selected_workspace["folder_path"]
+            st.session_state["active_workspace_name"] = selected_workspace["topic"]
+            st.session_state["vector_store"] = load_vector_store(selected_workspace["folder_path"])
+            st.session_state["vector_store_ready"] = True
+            st.session_state["qa_history"] = load_chat_history(selected_workspace["folder_path"])
+            st.session_state["search_results"] = []
+            st.session_state["extracted_item"] = None
+            st.session_state["chunked_documents"] = []
+            st.session_state["retrieved_chunks"] = []
+            st.session_state["generated_answer"] = ""
+            st.rerun()
 
 if search_clicked:
     if not research_query.strip():
@@ -173,16 +213,38 @@ if chunked_documents:
     # Once chunking is available, the next milestone is turning chunks into vectors.
     if st.button("Create Vector Store", use_container_width=True):
         with st.spinner("Building vector store from chunked documents..."):
-            st.session_state["vector_store"] = create_vector_store(chunked_documents)
+            workspace_title = workspace_name.strip() or f"Research Workspace {datetime.now().strftime('%Y-%m-%d %H:%M')}"
+            workspace_path = create_topic_folder(workspace_title)
+            st.session_state["vector_store"] = create_and_save_vector_store(
+                chunked_documents,
+                save_path=workspace_path,
+            )
+            st.session_state["active_workspace_path"] = workspace_path
+            st.session_state["active_workspace_name"] = workspace_title
             st.session_state["vector_store_ready"] = True
             st.session_state["retrieved_chunks"] = []
             st.session_state["generated_answer"] = ""
+            st.session_state["qa_history"] = []
+
+            source_url = extracted_item.get("url", "") if extracted_item else ""
+            save_metadata(
+                workspace_path,
+                {
+                    "topic": workspace_title,
+                    "created_at": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
+                    "total_chunks": len(chunked_documents),
+                    "source_url": source_url,
+                    "embedding_model": EMBEDDING_MODEL_NAME,
+                },
+            )
 
 vector_store_ready = st.session_state.get("vector_store_ready", False)
 if vector_store_ready:
     st.subheader("Vector Store Status")
     st.success("Vector store created successfully.")
     st.caption(f"Embedding model: {EMBEDDING_MODEL_NAME}")
+    if st.session_state.get("active_workspace_name"):
+        st.caption(f"Workspace: {st.session_state['active_workspace_name']}")
 
     with st.container(border=True):
         st.subheader("Ask from Research Store")
@@ -235,6 +297,12 @@ if retrieved_chunks:
                 question=question,
                 retrieved_chunks=retrieved_chunks,
             )
+            if st.session_state.get("active_workspace_path"):
+                st.session_state["qa_history"] = append_chat_message(
+                    folder_path=st.session_state["active_workspace_path"],
+                    question=question,
+                    answer=st.session_state["generated_answer"],
+                )
         except Exception as exc:
             st.error(f"Answer generation failed: {exc}")
 
@@ -243,4 +311,13 @@ if generated_answer:
     st.subheader("Generated Answer")
     st.markdown(generated_answer)
 
-st.info("Next step: persist workspaces, chat history, and user-specific usage across sessions.")
+qa_history = st.session_state.get("qa_history", [])
+if qa_history:
+    st.subheader("Chat History")
+    for index, item in enumerate(reversed(qa_history), start=1):
+        with st.container(border=True):
+            st.markdown(f"**Q{index}. {item.get('question', '')}**")
+            st.caption(item.get("time", ""))
+            st.markdown(item.get("answer", ""))
+
+st.info("Next step: expand the app with additional ingestion sources, better UI organization, and export features.")

@@ -70,6 +70,37 @@ def generate_with_groq(prompt: str, api_key: str | None = None, model_name: str 
     return response.choices[0].message.content or ""
 
 
+def generate_with_groq_and_usage(
+    prompt: str,
+    api_key: str | None = None,
+    model_name: str | None = None,
+) -> dict:
+    """Call Groq and return both the answer text and token-usage payload."""
+    resolved_api_key = (api_key or GROQ_API_KEY or "").strip()
+    if not resolved_api_key:
+        raise ValueError("GROQ_API_KEY is missing.")
+
+    client = Groq(api_key=resolved_api_key)
+    response = client.chat.completions.create(
+        model=model_name or GROQ_MODEL,
+        messages=[
+            {"role": "system", "content": "You answer from retrieved research context."},
+            {"role": "user", "content": prompt},
+        ],
+        temperature=0.2,
+    )
+
+    usage = getattr(response, "usage", None)
+    return {
+        "answer": response.choices[0].message.content or "",
+        "usage": {
+            "prompt_tokens": getattr(usage, "prompt_tokens", 0) if usage else 0,
+            "completion_tokens": getattr(usage, "completion_tokens", 0) if usage else 0,
+            "total_tokens": getattr(usage, "total_tokens", 0) if usage else 0,
+        },
+    }
+
+
 def generate_answer_from_chunks(question: str, retrieved_chunks: list[dict]) -> str:
     """Generate a grounded answer from the retrieved chunk set."""
     if not retrieved_chunks:
@@ -77,3 +108,16 @@ def generate_answer_from_chunks(question: str, retrieved_chunks: list[dict]) -> 
 
     prompt = build_rag_prompt(question, retrieved_chunks)
     return generate_with_groq(prompt)
+
+
+def generate_answer_with_usage(
+    question: str,
+    retrieved_chunks: list[dict],
+    api_key: str | None = None,
+) -> dict:
+    """Generate an answer and return the associated token-usage details."""
+    if not retrieved_chunks:
+        raise ValueError("No retrieved chunks found.")
+
+    prompt = build_rag_prompt(question, retrieved_chunks)
+    return generate_with_groq_and_usage(prompt, api_key=api_key)

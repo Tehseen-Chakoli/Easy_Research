@@ -17,12 +17,13 @@ def slugify_topic(topic: str) -> str:
     return normalized.strip("_") or "research_workspace"
 
 
-def create_topic_folder(topic: str) -> str:
+def create_topic_folder(topic: str, base_dir: str | None = None) -> str:
     """Create a timestamped folder for a persisted research workspace."""
-    BASE_VECTOR_DIR.mkdir(parents=True, exist_ok=True)
+    target_root = Path(base_dir) if base_dir else BASE_VECTOR_DIR
+    target_root.mkdir(parents=True, exist_ok=True)
     timestamp = datetime.now().strftime("%Y_%m_%d_%H_%M_%S")
     folder_name = f"{slugify_topic(topic)}_{timestamp}"
-    folder_path = BASE_VECTOR_DIR / folder_name
+    folder_path = target_root / folder_name
     folder_path.mkdir(parents=True, exist_ok=True)
     return str(folder_path)
 
@@ -44,14 +45,15 @@ def load_metadata(folder_path: str) -> dict:
         return json.load(file)
 
 
-def list_research_history() -> list[dict]:
+def list_research_history(base_dir: str | None = None) -> list[dict]:
     """Return saved workspaces ordered from newest to oldest."""
-    if not BASE_VECTOR_DIR.exists():
+    target_root = Path(base_dir) if base_dir else BASE_VECTOR_DIR
+    if not target_root.exists():
         return []
 
     history = []
-    for folder_name in os.listdir(BASE_VECTOR_DIR):
-        folder_path = BASE_VECTOR_DIR / folder_name
+    for folder_name in os.listdir(target_root):
+        folder_path = target_root / folder_name
         if not folder_path.is_dir():
             continue
 

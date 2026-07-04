@@ -31,6 +31,9 @@ The project now has:
 - chat history persistence and reload
 - mixed source ingestion from search, URLs, YouTube, TXT, and PDF
 - tabbed workspace flow for build, ask, and history
+- local authentication and sign-in flow
+- per-user workspace isolation
+- saved Groq API key and token usage tracking
 - a clean local development baseline
 
 ## Project Direction
@@ -71,8 +74,8 @@ At this stage:
 
 The current codebase now supports the first complete RAG loop and is ready to expand into:
 
-- user-specific account flows
 - export and interface polish
+- richer UI refinement
 
 ## Implemented So Far
 
@@ -93,6 +96,9 @@ The application can now:
 - reload saved workspaces later
 - persist chat history per workspace
 - combine multiple source types into one research workspace
+- sign in with a local user account
+- save a Groq API key per user
+- track token usage by account
 
 ## RAG Processing Step
 
@@ -130,6 +136,15 @@ The application now persists core research state to disk:
 2. store workspace metadata as JSON
 3. append Q&A history to workspace-level chat files
 4. reload a saved workspace and continue asking questions later
+
+## Account Layer
+
+The application now includes a local account system:
+
+1. users can create accounts and sign in
+2. each user gets a dedicated workspace root
+3. each user can save a private Groq API key
+4. token usage is accumulated per account
 
 ## Multi-Source Ingestion
 

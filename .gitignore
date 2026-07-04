@@ -19,6 +19,7 @@ __pycache__/
 
 .streamlit/secrets.toml
 vector_store/
+config/auth/
 
 *.log
 .DS_Store

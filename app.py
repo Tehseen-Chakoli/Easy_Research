@@ -1,4 +1,4 @@
-"""Easy Research application shell with multi-source workspace building."""
+"""Easy Research application shell with auth, user-scoped workspaces, and RAG flow."""
 
 from __future__ import annotations
 
@@ -6,15 +6,13 @@ from datetime import datetime
 
 import streamlit as st
 
-from src.answer_generator import generate_answer_from_chunks
+from src.answer_generator import generate_answer_with_usage
 from src.chat_history_manager import append_chat_message, load_chat_history
 from src.config import (
     APP_TITLE,
-    BASE_VECTOR_DIR,
     DEFAULT_NUM_RESULTS,
     DEFAULT_RETRIEVAL_K,
     EMBEDDING_MODEL_NAME,
-    GROQ_API_KEY,
     GROQ_MODEL,
     SERPER_API_KEY,
 )
@@ -24,6 +22,15 @@ from src.history_manager import create_topic_folder, list_research_history, save
 from src.input_parser import extract_urls_and_queries, is_youtube_url
 from src.retriever import retrieve_relevant_chunks
 from src.serper_search import search_serper
+from src.user_manager import (
+    authenticate_user,
+    get_usage_summary,
+    get_user_groq_key,
+    get_user_workspace_root,
+    record_token_usage,
+    register_user,
+    save_user_groq_key,
+)
 from src.vector_store import create_and_save_vector_store, load_vector_store
 from src.web_extractor import extract_content
 from src.youtube_loader import create_extracted_item_from_youtube
@@ -37,7 +44,7 @@ st.set_page_config(
 
 
 def initialize_session_state() -> None:
-    """Seed the state fields the app needs across build and ask flows."""
+    """Seed the state fields the app needs across auth, build, and ask flows."""
     defaults = {
         "vector_store_ready": False,
         "vector_store": None,
@@ -48,6 +55,10 @@ def initialize_session_state() -> None:
         "qa_history": [],
         "successful_documents": [],
         "all_chunks": [],
+        "is_authenticated": False,
+        "current_username": "",
+        "user_has_api_key": False,
+        "user_groq_api_key": "",
     }
     for key, default_value in defaults.items():
         if key not in st.session_state:
@@ -58,6 +69,16 @@ def reset_answer_state() -> None:
     """Clear answer-oriented state after a workspace is rebuilt or switched."""
     st.session_state["retrieved_chunks"] = []
     st.session_state["generated_answer"] = ""
+
+
+def current_username() -> str:
+    """Return the active username from session state."""
+    return st.session_state.get("current_username", "")
+
+
+def current_workspace_root() -> str:
+    """Resolve the authenticated user's dedicated workspace root."""
+    return get_user_workspace_root(current_username())
 
 
 def summarize_source(item: dict) -> dict:
@@ -96,11 +117,11 @@ def process_input_sources(source_input: str, uploaded_files, result_count: int) 
                 extracted_items.append(extracted_item)
 
     for url in manual_urls:
-        if is_youtube_url(url):
-            extracted_item = create_extracted_item_from_youtube(url)
-        else:
-            extracted_item = extract_content(url=url, title=url, snippet="User provided URL")
-
+        extracted_item = (
+            create_extracted_item_from_youtube(url)
+            if is_youtube_url(url)
+            else extract_content(url=url, title=url, snippet="User provided URL")
+        )
         if extracted_item.get("content"):
             extracted_items.append(extracted_item)
 
@@ -122,7 +143,7 @@ def build_workspace(workspace_name: str, source_input: str, uploaded_files, resu
         raise ValueError("No usable content was extracted from the provided sources.")
 
     workspace_title = workspace_name.strip() or f"Research Workspace {datetime.now().strftime('%Y-%m-%d %H:%M')}"
-    workspace_path = create_topic_folder(workspace_title)
+    workspace_path = create_topic_folder(workspace_title, base_dir=current_workspace_root())
     vector_store = create_and_save_vector_store(all_chunks, save_path=workspace_path)
 
     save_metadata(
@@ -159,16 +180,108 @@ def load_saved_workspace(workspace_item: dict) -> None:
     reset_answer_state()
 
 
+def sign_out() -> None:
+    """Clear authenticated session fields while preserving app defaults."""
+    st.session_state["is_authenticated"] = False
+    st.session_state["current_username"] = ""
+    st.session_state["user_has_api_key"] = False
+    st.session_state["user_groq_api_key"] = ""
+    st.session_state["vector_store_ready"] = False
+    st.session_state["vector_store"] = None
+    st.session_state["active_workspace_path"] = ""
+    st.session_state["active_workspace_name"] = ""
+    st.session_state["qa_history"] = []
+    st.session_state["successful_documents"] = []
+    st.session_state["all_chunks"] = []
+    reset_answer_state()
+
+
+def render_auth_screen() -> None:
+    """Render a simple local auth screen with sign-in and account creation."""
+    st.title(APP_TITLE)
+    st.caption("Sign in to build and manage your own research workspaces.")
+    sign_in_tab, create_tab = st.tabs(["Sign In", "Create Account"])
+
+    with sign_in_tab:
+        with st.container(border=True):
+            login_username = st.text_input("Username", key="login_username")
+            login_password = st.text_input("Password", type="password", key="login_password")
+            if st.button("Sign In", use_container_width=True):
+                try:
+                    account = authenticate_user(login_username, login_password)
+                    st.session_state["is_authenticated"] = True
+                    st.session_state["current_username"] = account["username"]
+                    st.session_state["user_has_api_key"] = account["has_groq_api_key"]
+                    st.session_state["user_groq_api_key"] = get_user_groq_key(account["username"])
+                    st.rerun()
+                except Exception as exc:
+                    st.error(str(exc))
+
+    with create_tab:
+        with st.container(border=True):
+            new_username = st.text_input("Username", key="signup_username")
+            new_password = st.text_input("Password", type="password", key="signup_password")
+            if st.button("Create Account", use_container_width=True):
+                try:
+                    account = register_user(new_username, new_password)
+                    st.session_state["is_authenticated"] = True
+                    st.session_state["current_username"] = account["username"]
+                    st.session_state["user_has_api_key"] = False
+                    st.session_state["user_groq_api_key"] = ""
+                    st.rerun()
+                except Exception as exc:
+                    st.error(str(exc))
+
+
+def render_api_key_setup_screen() -> None:
+    """Require the signed-in user to save a Groq API key before entering the app."""
+    st.title(APP_TITLE)
+    st.caption("Connect Groq to enable grounded answer generation in your account.")
+
+    with st.container(border=True):
+        api_key_value = st.text_input("Groq API key", type="password")
+        st.link_button("Get a Groq API key", "https://console.groq.com/keys", use_container_width=True)
+        if st.button("Save API Key", use_container_width=True):
+            if not api_key_value.strip():
+                st.warning("Please enter a Groq API key.")
+            else:
+                save_user_groq_key(current_username(), api_key_value.strip())
+                st.session_state["user_groq_api_key"] = api_key_value.strip()
+                st.session_state["user_has_api_key"] = True
+                st.rerun()
+
+
 initialize_session_state()
+
+if not st.session_state.get("is_authenticated"):
+    render_auth_screen()
+    st.stop()
+
+if not st.session_state.get("user_has_api_key"):
+    render_api_key_setup_screen()
+    st.stop()
 
 st.title(APP_TITLE)
 st.caption("Research workspace builder for learning and experimenting with RAG.")
 
 with st.sidebar:
-    st.markdown("### Workspace Storage")
-    st.caption(f"Local storage root: `{BASE_VECTOR_DIR}`")
+    st.markdown("### Account")
+    st.markdown(f"**{current_username()}**")
+    if st.button("Sign Out", use_container_width=True):
+        sign_out()
+        st.rerun()
 
-    saved_workspaces = list_research_history()
+    usage = get_usage_summary(current_username())
+    st.markdown("### Usage")
+    st.metric("Total tokens", usage["total_tokens"])
+    st.metric("Requests", usage["requests"])
+    if usage.get("last_updated"):
+        st.caption(f"Updated {usage['last_updated']}")
+
+    st.markdown("### Workspace Storage")
+    st.caption(f"User workspace root: `{current_workspace_root()}`")
+
+    saved_workspaces = list_research_history(base_dir=current_workspace_root())
     if saved_workspaces:
         selected_workspace = st.selectbox(
             "Saved workspaces",
@@ -257,11 +370,7 @@ with ask_tab:
                 value=DEFAULT_RETRIEVAL_K,
                 step=1,
             )
-
-            if GROQ_API_KEY:
-                st.caption(f"Groq answer model ready: {GROQ_MODEL}")
-            else:
-                st.caption("Add GROQ_API_KEY to enable grounded answer generation.")
+            st.caption(f"Groq answer model ready: {GROQ_MODEL}")
 
             if st.button("Generate Answer", use_container_width=True):
                 try:
@@ -271,10 +380,13 @@ with ask_tab:
                         k=int(retrieval_k),
                     )
                     st.session_state["retrieved_chunks"] = retrieved_chunks
-                    st.session_state["generated_answer"] = generate_answer_from_chunks(
+                    generation_result = generate_answer_with_usage(
                         question=question,
                         retrieved_chunks=retrieved_chunks,
+                        api_key=st.session_state.get("user_groq_api_key"),
                     )
+                    st.session_state["generated_answer"] = generation_result["answer"]
+                    record_token_usage(current_username(), generation_result.get("usage", {}))
                     if st.session_state.get("active_workspace_path"):
                         st.session_state["qa_history"] = append_chat_message(
                             folder_path=st.session_state["active_workspace_path"],

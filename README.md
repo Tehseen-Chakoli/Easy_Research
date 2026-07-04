@@ -9,7 +9,7 @@
   <img src="https://img.shields.io/badge/PyMuPDF+EasyOCR-PDF%20Pipeline-7C3AED?style=for-the-badge" alt="PDF Pipeline" />
 </p>
 
-Easy Answer is a Streamlit-based learning project for building a practical Retrieval-Augmented Generation (RAG) workflow. It lets a user create research workspaces from search results, URLs, YouTube transcripts, TXT files, and PDFs, store them locally in FAISS, and ask grounded questions with Groq-generated answers and citations.
+Easy Answer is a Streamlit-based research assistant built around a practical Retrieval-Augmented Generation (RAG) workflow. It lets a user create research workspaces from search results, URLs, YouTube transcripts, TXT files, and PDFs, store them locally in FAISS, and ask grounded questions with Groq-generated answers and citations.
 
 The app now includes user authentication, per-user workspace isolation, saved Groq API keys, token usage tracking, persistent chat history, and themed PDF export for conversation downloads.
 
@@ -33,9 +33,9 @@ Shows the export flow for conversation downloads and PDF theme selection.
 
 ![Download](docs/images/Download.png)
 
-## Why This Exists
+## Overview
 
-This project was built as a hands-on way to learn how a multi-source RAG application fits together end to end:
+The project focuses on a full multi-source research workflow:
 
 - ingestion from several source types
 - extraction and normalization
@@ -383,18 +383,17 @@ The PDF pipeline first attempts selectable text extraction with `PyMuPDF`. If th
 
 The answer formatter rebuilds the sources section from the citations actually referenced in the generated answer, helping reduce duplicate or irrelevant source entries.
 
-## Development Notes
+## Project Notes
 
-- This codebase is local-first and optimized for experimentation and learning.
-- The current app uses Groq as the active LLM provider.
-- Older prototype and debug-only files were removed to keep the repository aligned with the current product surface.
-- The `notebooks/` directory can still be useful for experiments and one-off checks without affecting the application runtime.
+- The application is local-first and stores workspaces on disk.
+- Groq is the active model provider used for answer generation.
+- The runtime app is kept separate from scratch notebooks and reference material.
 - Place README screenshots in `docs/images/` using these exact filenames:
   - `Home_Page.png`
   - `Ask.png`
   - `Download.png`
 
-## Recommended Next Improvements
+## Roadmap
 
 - add automated tests for ingestion and retrieval flows
 - add password reset or account recovery support
@@ -404,6 +403,4 @@ The answer formatter rebuilds the sources section from the citations actually re
 
 ## License
 
-This repository currently does not include an open-source license.
-
-For a personal learning project, that is completely acceptable. If you later decide to make reuse permissive, you can add a license such as MIT, Apache-2.0, or GPL depending on how open you want the project to be.
+This repository does not currently include an open-source license.
